@@ -623,10 +623,24 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
 	})
 
 	// recv a message
-	ws.on('CB:message', (node: BinaryNode) => {
-		flushBufferIfLastOfflineNode(node, 'processing message', handleMessage)
-	})
-
+	const keys = {};
+	ws.on('CB:message', (node) => {
+		Object.keys(keys).length && Object.keys(keys).map((i) => {
+			if (Date.now() >= keys[i]) {
+				delete keys[i];
+				};
+			});
+		if (node.attrs && node.content[0] && node.content[0].attrs && node.content[0].attrs.mediatype == 'url') {
+			if (keys[node.attrs.id]) {
+				logger.debug(node.attrs, 'duplicate message, ignoring...');
+				return delete keys[node.attrs.id];
+				} else {
+					keys[node.attrs.id] = Date.now() + 60000;
+					}
+			}
+		flushBufferIfLastOfflineNode(node, 'processing message', handleMessage);
+	});
+	
 	ws.on('CB:call', async(node: BinaryNode) => {
 		flushBufferIfLastOfflineNode(node, 'handling call', handleCall)
 	})
